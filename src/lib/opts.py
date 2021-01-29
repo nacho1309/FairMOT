@@ -10,7 +10,7 @@ class opts(object):
   def __init__(self):
     self.parser = argparse.ArgumentParser()
     # basic experiment setting
-    self.parser.add_argument('task', default='mot', help='mot')
+    self.parser.add_argument('--task', default='mot', help='mot')
     self.parser.add_argument('--dataset', default='jde', help='jde')
     self.parser.add_argument('--exp_id', default='default')
     self.parser.add_argument('--test', action='store_true')
@@ -160,10 +160,9 @@ class opts(object):
 
   def parse(self, args=''):
     if args == '':
-      opt = self.parser.parse_args()
+      opt, unknown = self.parser.parse_known_args()
     else:
-      opt = self.parser.parse_args(args)
-
+      opt, unknown = self.parser.parse_known_args(args)
     opt.gpus_str = opt.gpus
     opt.gpus = [int(gpu) for gpu in opt.gpus.split(',')]
     opt.gpus = [i for i in range(len(opt.gpus))] if opt.gpus[0] >=0 else [-1]

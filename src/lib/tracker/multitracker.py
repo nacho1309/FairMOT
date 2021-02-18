@@ -225,6 +225,31 @@ class JDETracker(object):
                 results[j] = results[j][keep_inds]
         return results
 
+    def detect(self, im_blob, img0):
+        width = img0.shape[1]
+        height = img0.shape[0]
+        inp_height = im_blob.shape[2]
+        inp_width = im_blob.shape[3]
+        c = np.array([width / 2., height / 2.], dtype=np.float32)
+        s = max(float(inp_width) / float(inp_height) * height, width) * 1.0
+        meta = {'c': c, 's': s,
+                'out_height': inp_height // self.opt.down_ratio,
+                'out_width': inp_width // self.opt.down_ratio}
+
+        ''' Step 1: Network forward, get detections & embeddings'''
+        with torch.no_grad():
+            output = self.model(im_blob)[-1]
+            hm = output['hm'].sigmoid_()
+            wh = output['wh']
+            reg = output['reg'] if self.opt.reg_offset else None
+            dets, inds = mot_decode(hm, wh, reg=reg, ltrb=self.opt.ltrb, K=self.opt.K)
+        dets = self.post_process(dets, meta)
+        dets = self.merge_outputs([dets])[1]
+        remain_inds = dets[:, 4] > self.opt.conf_thres
+        #format tlbr
+        dets = dets[remain_inds]
+        return dets
+    
     def update(self, im_blob, img0):
         self.frame_id += 1
         activated_starcks = []

@@ -33,7 +33,6 @@ def main(opt):
     dataset = Dataset(opt, dataset_root, trainset_paths, (1088, 608), augment=True, transforms=transforms)
     opt = opts().update_dataset_info_and_set_heads(opt, dataset)
     print(opt)
-
     logger = Logger(opt)
 
     os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpus_str
@@ -86,7 +85,7 @@ def main(opt):
             print('Drop LR to', lr)
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
-        if epoch % 5 == 0 or epoch >= 25:
+        if epoch % 10 == 0: # or epoch >= 25:
             save_model(os.path.join(opt.save_dir, 'model_{}.pth'.format(epoch)),
                        epoch, model, optimizer)
     logger.close()

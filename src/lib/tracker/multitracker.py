@@ -292,16 +292,26 @@ class JDETracker(object):
                 tracked_stracks.append(track)
 
         ''' Step 2: First association, with embedding'''
+        ##Join track ids into one
         strack_pool = joint_stracks(tracked_stracks, self.lost_stracks)
         # Predict the current location with KF
         #for strack in strack_pool:
             #strack.predict()
+
+        ##Calculate joint average mean, dev for kalman tracker
         STrack.multi_predict(strack_pool)
+
+        #Gets cost matrix between tracks and dets
         dists = matching.embedding_distance(strack_pool, detections)
         #dists = matching.iou_distance(strack_pool, detections)
-        dists = matching.fuse_motion(self.kalman_filter, dists, strack_pool, detections)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
 
+        #If tracks with their assignment are too far away from the kalman filter prediction then assign infinite cose
+        #Update cost matrix with kalman filter
+        dists = matching.fuse_motion(self.kalman_filter, dists, strack_pool, detections)
+        #Find optimum assignment using cost matrix
+        #u_track and u_detecion are the unmatched tracks and detections respectively
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.4)
+        #Update currently tracked tracks with matches found
         for itracked, idet in matches:
             track = strack_pool[itracked]
             det = detections[idet]
@@ -314,10 +324,13 @@ class JDETracker(object):
 
         ''' Step 3: Second association, with IOU'''
         detections = [detections[i] for i in u_detection]
+        #Get tracked tracks which were not matched before which were tracked
         r_tracked_stracks = [strack_pool[i] for i in u_track if strack_pool[i].state == TrackState.Tracked]
+        #Get cost matrix
         dists = matching.iou_distance(r_tracked_stracks, detections)
+        #Find best assignment based on iou
         matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
-
+        #Update currently tracked tracks with matches found
         for itracked, idet in matches:
             track = r_tracked_stracks[itracked]
             det = detections[idet]
@@ -327,7 +340,7 @@ class JDETracker(object):
             else:
                 track.re_activate(det, self.frame_id, new_id=False)
                 refind_stracks.append(track)
-                
+        #For all of the unmatched tracks, mark them as lost
         for it in u_track:
             track = r_tracked_stracks[it]
             if not track.state == TrackState.Lost:
@@ -335,12 +348,15 @@ class JDETracker(object):
                 lost_stracks.append(track)
 
         '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
+        #For the unconfirmed tracks, tracks with only one beginning frame, use the remaining detection to try to pair them
         detections = [detections[i] for i in u_detection]
         dists = matching.iou_distance(unconfirmed, detections)
         matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)
+        #Add the matched ones
         for itracked, idet in matches:
             unconfirmed[itracked].update(detections[idet], self.frame_id)
             activated_starcks.append(unconfirmed[itracked])
+        #For the ones that couldn't be matched, remove them
         for it in u_unconfirmed:
             track = unconfirmed[it]
             track.mark_removed()
@@ -355,6 +371,7 @@ class JDETracker(object):
             activated_starcks.append(track)
         """ Step 5: Update state"""
         for track in self.lost_stracks:
+            # If dissappeared for max_time_lost then remove
             if self.frame_id - track.end_frame > self.max_time_lost:
                 track.mark_removed()
                 removed_stracks.append(track)

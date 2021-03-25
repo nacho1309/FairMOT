@@ -81,8 +81,6 @@ class BaseTrainer(object):
         epoch, iter_id, num_iters, phase=phase,
         total=bar.elapsed_td, eta=bar.eta_td)
       for l in avg_loss_stats:
-        if l=="id_loss":
-            continue
         avg_loss_stats[l].update(
           loss_stats[l].mean().item(), batch['input'].size(0))
         Bar.suffix = Bar.suffix + '|{} {:.4f} '.format(l, avg_loss_stats[l].avg)
